@@ -37,7 +37,7 @@ else
 fi
 
 # get first sector
-sudo dd status=none conv=sync,fsync if=$DISK of=$PARIMG_TMP skip=$SEEK count=1 #bs=512
+sudo dd status=none conv=sync,fsync if=$DISK of=$PARIMG_TMP skip=$SEEK count=1 bs=512
 
 # validate for parameter.img
 if [ `dd status=none if=$PARIMG_TMP count=4 bs=1` != "PARM" ]; then
