@@ -4,13 +4,15 @@
 # fbconify by mac-l1
 #
 # script to disable/enable fbcon in kernel command line 
-# for rockchip bootable SD cards /dev/mmcblk0 and /dev/mmcblk1 
+# for rockchip bootable memory cards /dev/mmcblk0 and /dev/mmcblk1 
 # and for accessable parameter partition at /dev/block/mtd/by-name/parameter
 #
 # tested for firefly, use at your own risk as raw disk access is done
 #
 # cheers! mac-l1
 
+# parse args
+AUTO=""; if [ $(echo $@|grep -w "auto"|wc -l) != "0" ]; then AUTO=auto; fi
 
 # make sure rkcrc is available
 if ! [ -x rkcrc ]; then
@@ -44,13 +46,20 @@ if ! [ -e $DISK ]; then
   return
 fi
 
-# ask to proceed
-echo -n fbconify $DISK
-read -p ' ? (Y/N) ' -n 1 -r
-echo    # (optional) move to a new line
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
+if [ "$AUTO" = "auto" ]; then 
   echo fbconifying $DISK ...
+else
+  # ask to proceed
+  echo -n fbconify $DISK
+  read -p ' ? (Y/N) ' -n 1 -r
+  echo    # (optional) move to a new line
+  if [[ $REPLY =~ ^[Yy]$ ]]
+  then
+    echo fbconifying $DISK ...
+  else 
+    return
+  fi
+fi
 
 rm -rf $PARIMG_OLD $PARIMG_NEW $PARIMG_TMP $PARTXT
 
@@ -86,17 +95,19 @@ if [ `grep "fbcon" $PARTXT | wc -l` == "0" ]; then
   sed -i 's/CMDLINE:/CMDLINE:fbcon=vc:64-63 /g' $PARTXT
   echo "done"
 else
-  echo
-  echo -n "fbcon was already added! remove it"
-  read -p ' ? (Y/N) ' -n 1 -r
-  echo    # (optional) move to a new line
-  if [[ $REPLY =~ ^[Yy]$ ]]
-  then
-    sed -i 's/fbcon=vc:64-63 //g' $PARTXT
-    echo done
-  else
-    echo not done
-    return
+  if [ "$AUTO" != "auto" ]; then 
+    echo
+    echo -n "fbcon was already added! remove it"
+    read -p ' ? (Y/N) ' -n 1 -r
+    echo    # (optional) move to a new line
+    if [[ $REPLY =~ ^[Yy]$ ]]
+    then
+      sed -i 's/fbcon=vc:64-63 //g' $PARTXT
+      echo done
+    else
+      echo not done
+      return
+    fi
   fi
 fi
 
@@ -104,17 +115,24 @@ echo -n "generate new parameter img file ..."
 ./rkcrc -p  $PARTXT $PARIMG_NEW
 echo "done"
 
-echo -n copy fbconified parameter img file to $DISK
-read -p ' ? (Y/N) ' -n 1 -r
-echo    # (optional) move to a new line
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
+if [ "$AUTO" = "auto" ]; then 
   echo copy to $DISK ...
-  sudo dd conv=sync,fsync of=$DISK if=$PARIMG_NEW seek=$SEEK #bs=512
-  echo done
+else
+  echo -n copy fbconified parameter img file to $DISK
+  read -p ' ? (Y/N) ' -n 1 -r
+  echo    # (optional) move to a new line
+  if [[ $REPLY =~ ^[Yy]$ ]]
+  then
+    echo copy to $DISK ...
+  else
+    return
+  fi
 fi
 
-fi
+sudo dd conv=sync,fsync of=$DISK if=$PARIMG_NEW seek=$SEEK #bs=512
+echo done
+
+return
 }
 
 fbconify /dev/mmcblk0 # probably internal flash mem/ SD card
